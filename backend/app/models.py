@@ -102,7 +102,10 @@ class PromptUpdate(PromptBase):
         ...     collection_id="editing-tools",
         ... )
     """
-
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    content: Optional[str] = Field(None, min_length=1)
+    description: Optional[str] = Field(None, max_length=500)
+    collection_id: Optional[str] = Field(None, min_length=5)  # Adjust per constraints
 
 class PromptPartialUpdate(BaseModel):
     """Model for partially updating prompt fields in the PromptLab API.
@@ -134,6 +137,7 @@ class Prompt(PromptBase):
         description: Optional metadata giving additional context.
         collection_id: Optional identifier linking the prompt to a collection.
         id: Unique identifier for the prompt.
+        version_number: Monotonic version counter for the prompt data.
         created_at: Timestamp indicating when the prompt was created.
         updated_at: Timestamp indicating the last modification time.
 
@@ -147,6 +151,7 @@ class Prompt(PromptBase):
     """
 
     id: str = Field(default_factory=generate_id)
+    version_number: int = Field(1, ge=1, description="Monotonic counter that increments each update")
     created_at: datetime = Field(default_factory=get_current_time)
     updated_at: datetime = Field(default_factory=get_current_time)
 

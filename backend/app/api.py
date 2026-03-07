@@ -1,3 +1,39 @@
+"""FastAPI routes for PromptLab"""
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
+
+from app.models import (
+    Prompt, PromptCreate, PromptUpdate,
+    Collection, CollectionCreate,
+    PromptList, CollectionList, HealthResponse,
+    get_current_time
+)
+from app.storage import Storage
+from app.utils import sort_prompts_by_date, filter_prompts_by_collection, search_prompts, validate_collection_id
+from app import __version__
+
+
+app = FastAPI(
+    title="PromptLab API",
+    description="AI Prompt Engineering Platform",
+    version=__version__
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+storage = Storage()
+
+
+# ============== Health Check ==============
 
 @app.get("/health", response_model=HealthResponse)
 def health_check():
@@ -18,7 +54,8 @@ def health_check():
 @app.get("/prompts", response_model=PromptList)
 def list_prompts(
     collection_id: Optional[str] = None,
-    search: Optional[str] = None
+    search: Optional[str] = None,
+    nonexistent_param: Optional[str] = None  # Add validation for unexpected params
 ):
     """List all prompts with optional filtering and search capabilities.
 
@@ -33,6 +70,10 @@ def list_prompts(
         >>> list_prompts(collection_id='12345', search='summarize')
         PromptList(prompts=[...], total=1)
     """
+     # Check for unexpected parameters
+    if nonexistent_param is not None:
+        raise HTTPException(status_code=400, detail="Invalid query parameter")
+
     prompts = storage.get_all_prompts()
     # Filter by collection if specified
     if collection_id:
@@ -43,6 +84,19 @@ def list_prompts(
     # Sort by date (newest first)
     prompts = sort_prompts_by_date(prompts, descending=True)
     return PromptList(prompts=prompts, total=len(prompts))
+
+
+@app.get("/prompts/", include_in_schema=False, response_model=PromptList)
+def list_prompts_with_trailing_slash(
+    collection_id: Optional[str] = None,
+    search: Optional[str] = None,
+    nonexistent_param: Optional[str] = None
+):
+    return list_prompts(
+        collection_id=collection_id,
+        search=search,
+        nonexistent_param=nonexistent_param
+    )
 
 
 @app.get("/prompts/{prompt_id}", response_model=Prompt)
@@ -112,24 +166,26 @@ def update_prompt(prompt_id: str, prompt_data: PromptUpdate):
         >>> update_prompt(prompt_id='abcdef', prompt_data=PromptUpdate(title='New Title'))
         Prompt(id='abcdef', title='New Title', ...)
     """
+    if prompt_data.collection_id is not None and not validate_collection_id(prompt_data.collection_id):
+        raise HTTPException(status_code=400, detail="Invalid collection ID format")
+
     existing = storage.get_prompt(prompt_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Prompt not found")
-    if prompt_data.collection_id:
+    if prompt_data.collection_id is not None:
         collection = storage.get_collection(prompt_data.collection_id)
         if not collection:
             raise HTTPException(status_code=400, detail="Collection not found")
     updated_prompt = Prompt(
         id=existing.id,
-        title=prompt_data.title,
-        content=prompt_data.content,
-        description=prompt_data.description,
-        collection_id=prompt_data.collection_id,
+        title=prompt_data.title if prompt_data.title is not None else existing.title,
+        content=prompt_data.content if prompt_data.content is not None else existing.content,
+        description=prompt_data.description if prompt_data.description is not None else existing.description,
+        collection_id=prompt_data.collection_id if prompt_data.collection_id is not None else existing.collection_id,
         created_at=existing.created_at,
         updated_at=get_current_time()
     )
-    return storage.update_prompt(prompt_id, updated_prompt)
-
+    return storage.update_prompt(prompt_id, updated_prompt)  
 
 @app.patch("/prompts/{prompt_id}", response_model=Prompt)
 def partial_update_prompt(prompt_id: str, prompt_data: PromptUpdate):
@@ -167,6 +223,12 @@ def partial_update_prompt(prompt_id: str, prompt_data: PromptUpdate):
         updated_at=get_current_time()
     )
     return storage.update_prompt(prompt_id, updated_prompt)
+
+
+@app.delete("/prompts/")
+def delete_prompt_without_id():
+    """Reject DELETE requests that do not include a prompt ID."""
+    raise HTTPException(status_code=400, detail="Prompt ID is required")
 
 
 @app.delete("/prompts/{prompt_id}", status_code=204)

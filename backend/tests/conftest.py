@@ -1,23 +1,23 @@
-"""Test fixtures for PromptLab"""
-
 import pytest
 from fastapi.testclient import TestClient
-from app.api import app
-from app.storage import storage
+from app.api import app, storage as api_storage
+from app.storage import Storage
 
+@pytest.fixture
+def storage():
+    return Storage()
 
 @pytest.fixture
 def client():
     """Create a test client for the API."""
     return TestClient(app)
 
-
 @pytest.fixture(autouse=True)
-def clear_storage():
-    """Clear storage before each test."""
-    storage.clear()
+def clear_api_storage():
+    """Clear shared API storage before each test."""
+    api_storage.clear()
     yield
-    storage.clear()
+    api_storage.clear()
 
 
 @pytest.fixture
@@ -28,7 +28,6 @@ def sample_prompt_data():
         "content": "Review the following code and provide feedback:\n\n{{code}}",
         "description": "A prompt for AI code review"
     }
-
 
 @pytest.fixture
 def sample_collection_data():

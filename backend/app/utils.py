@@ -52,7 +52,8 @@ def search_prompts(prompts: List[Prompt], query: str) -> List[Prompt]:
     return [
         p for p in prompts
         if query_lower in p.title.lower() or
-           (p.description and query_lower in p.description.lower())
+           (p.description and query_lower in p.description.lower()) or
+           (p.content and query_lower in p.content.lower())  # Include content field
     ]
 
 def validate_prompt_content(content: str) -> bool:
@@ -76,6 +77,16 @@ def validate_prompt_content(content: str) -> bool:
     if not content or not content.strip():
         return False
     return len(content.strip()) >= 10
+
+def validate_collection_id(collection_id: str) -> bool:
+    """Simple validation for collection IDs."""
+    if not collection_id or not collection_id.strip():
+        return False
+    normalized = collection_id.strip()
+    if len(normalized) < 6:
+        return False
+    cleaned = normalized.replace("-", "").replace("_", "")
+    return cleaned.isalnum()
 
 def extract_variables(content: str) -> List[str]:
     """Extract variables from the prompt content.
