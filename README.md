@@ -34,7 +34,8 @@ promptlab/
 │   ├── main.py                 # Entry point
 │   └── requirements.txt
 │
-├── frontend/                    # Frontend to be added
+├── frontend/                    # React + Vite frontend
+
 ├── docs/                        # Documentation resources
 └── .github/                     # CI/CD configurations
 ```
@@ -84,7 +85,20 @@ python main.py
 
 ---
 
+## Frontend Setup
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend reads the backend URL from `VITE_API_BASE_URL` (default `http://localhost:8080`).
+
+---
+
 ## API Endpoint Summary with Examples
+
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
